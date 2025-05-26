@@ -1,0 +1,10 @@
+[package]
+name = "club-ostrich"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.98"
+macroquad = "0.4"
+nostr-sdk = "0.29"
+tokio = { version = "1.37", features = ["full"] }
