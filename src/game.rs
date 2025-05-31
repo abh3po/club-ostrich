@@ -25,9 +25,11 @@ impl Player {
         if is_key_down(KeyCode::Up) {
             self.y -= SPEED;
         }
+        self.x = self.x.clamp(0.0, 800.0);
+        self.y = self.y.clamp(0.0, 600.0);
     }
 
     pub fn draw(&self) {
-        draw_rectangle(self.x, self.y, 50.0, 50.0, self.color);
+        draw_rectangle(self.x - 15.0, self.y - 15.0, 30.0, 30.0, self.color);
     }
 }

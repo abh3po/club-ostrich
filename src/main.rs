@@ -2,22 +2,45 @@ mod game;
 mod nostr;
 
 use game::Player;
-use macroquad::prelude::*;
+use macroquad::{ prelude::*};
 use nostr::{init_client, send_position};
-use std::{collections::HashMap, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 use tokio::{runtime::Runtime, sync::mpsc};
+use macroquad::conf::Conf;
 
-#[macroquad::main("Club Ostrich")]
+fn window_conf() -> Conf {
+    Conf {
+        // Set window options via miniquad_conf
+        miniquad_conf: miniquad::conf::Conf {
+            window_title: "Club Ostrich".to_string(),
+            window_width: 800,
+            window_height: 600,
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+#[macroquad::main(window_conf)]
 async fn main() {
     let rt = Runtime::new().expect("Failed to create Tokio runtime");
-    let (client, my_keys) = rt.block_on(init_client()).expect("Failed to init nostr client");
+    let (client, my_keys) = rt
+        .block_on(init_client())
+        .expect("Failed to init nostr client");
 
     let mut player = Player::new(200.0, 200.0, RED);
     let pubkey = my_keys.public_key().to_string();
 
     // Channel to receive other players' positions
     let (tx, mut rx) = mpsc::channel(100);
-    rt.block_on(nostr::subscribe_positions(client.clone(), pubkey.clone(), tx));
+    rt.block_on(nostr::subscribe_positions(
+        client.clone(),
+        pubkey.clone(),
+        tx,
+    ));
 
     let mut last_send = Instant::now() - Duration::from_secs(1);
     let mut last_sent_x = player.x;
@@ -28,7 +51,12 @@ async fn main() {
 
     loop {
         clear_background(WHITE);
+        let border_x = 0.0;
+        let border_y = 0.0;
+        let border_width = 800.0;
+        let border_height = 600.0;
 
+        draw_rectangle_lines(border_x, border_y, border_width, border_height, 4.0, BLACK);
         // Draw local player
         player.update();
         player.draw();
@@ -58,7 +86,9 @@ async fn main() {
 
         // Handle incoming positions
         while let Ok((pubkey, x, y)) = rx.try_recv() {
-            others.insert(pubkey, (x, y));
+            others.insert(pubkey.clone(), (x, y));
+            println!("Updated player {} position to ({}, {})", pubkey, x, y);
+            println!("Current others map: {:?}", others);
         }
 
         next_frame().await;

@@ -1,6 +1,5 @@
-use nostr_sdk::{Client, EventBuilder, Filter, Keys, Kind, RelayPoolNotification, Tag};
+use nostr_sdk::{Client, EventBuilder, Filter, Keys, Kind, RelayPoolNotification, Tag, Alphabet, TagKind};
 use tokio::sync::mpsc::Sender;
-
 
 pub async fn init_client() -> anyhow::Result<(Client, Keys)> {
     let my_keys = Keys::generate();
@@ -21,36 +20,50 @@ pub async fn subscribe_positions(
         .since(nostr_sdk::Timestamp::now());
 
     // Fix 1: Provide the second argument explicitly
-    client
-        .subscribe(vec![filter], None)
-        .await;
+    client.subscribe(vec![filter], None).await;
 
     // Spawn a listener task
     tokio::spawn(async move {
         let mut notifications = client.notifications();
 
         while let Ok(notification) = notifications.recv().await {
-            // Fix 2: Updated pattern match syntax for RelayPoolNotification
-            if let RelayPoolNotification::Event { event, .. } = notification {
+            if let RelayPoolNotification::Event {
+                event, relay_url, ..
+            } = notification
+            {
+                println!("📩 Event received from relay: {}", relay_url);
+                println!("🆔 Event ID: {}", event.id);
+                println!("👤 Pubkey: {}", event.pubkey);
+                println!("🗂 Kind: {:?}", event.kind);
+                println!("📝 Content: {}", event.content);
+                println!("🏷 Tags: {:?}", event.tags);
+
+                // Skip events from self
                 if event.pubkey.to_string() == self_pubkey {
                     continue;
                 }
 
-                // Fix 3: TagKind does not have `as_str()` — use matching directly
                 let mut x = None;
                 let mut y = None;
 
                 for tag in &event.tags {
+                    println!("➡ Tag: {:?}", tag);
+
                     if let Tag::Generic(tag_kind, values) = tag {
+                        println!("   - Values: {:?}", values);
+
                         match tag_kind {
-                            // TagKind is an enum — match variants directly
-                            nostr_sdk::TagKind::Custom(t) if t == "x" => {
-                                x = values.get(0).and_then(|s| s.parse().ok())
+                            TagKind::SingleLetter(sl) if sl.character == Alphabet::X => {
+                                x = values.get(1).and_then(|s| s.parse().ok());
+                                println!("   ✅ Parsed x = {:?}", x);
                             }
-                            nostr_sdk::TagKind::Custom(t) if t == "y" => {
-                                y = values.get(0).and_then(|s| s.parse().ok())
+                            TagKind::SingleLetter(sl) if sl.character == Alphabet::Y => {
+                                y = values.get(1).and_then(|s| s.parse().ok());
+                                println!("   ✅ Parsed y = {:?}", y);
                             }
-                            _ => {}
+                            _ => {
+                                println!("   ⚠️ Unhandled tag kind: {:?}", tag_kind);
+                            }
                         }
                     }
                 }
@@ -58,6 +71,8 @@ pub async fn subscribe_positions(
                 if let (Some(px), Some(py)) = (x, y) {
                     let _ = tx.send((event.pubkey.to_string(), px, py)).await;
                 }
+            } else {
+                //println!("📬 Other notification: {:?}", notification);
             }
         }
     });
@@ -65,8 +80,8 @@ pub async fn subscribe_positions(
 
 pub async fn send_position(client: &Client, my_keys: &Keys, x: f32, y: f32) {
     let tags = vec![
-        Tag::Generic("coord".into(), vec!["x".into(), x.to_string()]),
-        Tag::Generic("coord".into(), vec!["y".into(), y.to_string()]),
+        Tag::Generic("x".into(), vec!["x".into(), x.to_string()]),
+        Tag::Generic("y".into(), vec!["y".into(), y.to_string()]),
     ];
 
     let event = EventBuilder::new(Kind::Ephemeral(20009), "", tags)
