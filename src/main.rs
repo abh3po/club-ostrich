@@ -60,11 +60,27 @@ async fn main() {
         // Draw local player
         player.update();
         player.draw();
+        
+        let my_truncated = if pubkey.len() > 8 {
+            format!("{}...{}", &pubkey[..4], &pubkey[pubkey.len()-4..])
+        } else {
+            pubkey.to_string()
+        };
+        draw_text(&my_truncated, player.x + 20.0, player.y, 20.0, BLACK);
 
         // Draw other players
-        for (_pubkey, (x, y)) in others.iter() {
+        for (pubkey, (x, y)) in others.iter() {
             draw_circle(*x, *y, 10.0, BLUE);
+        
+            let truncated = if pubkey.len() > 8 {
+                format!("{}...{}", &pubkey[..4], &pubkey[pubkey.len()-4..])
+            } else {
+                pubkey.to_string()
+            };
+        
+            draw_text(&truncated, *x + 12.0, *y, 20.0, BLACK);
         }
+        
 
         // Throttled position update
         if player.x != last_sent_x || player.y != last_sent_y {
