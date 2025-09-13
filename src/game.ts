@@ -9,6 +9,8 @@ export class GameScene extends Phaser.Scene {
 
   preload() {
     this.load.image("room1", "assets/room1.png");
+    this.load.image("ostrich_player", "assets/ostrich_player.png");
+    this.load.image("ostrich_other", "assets/ostrich_other.png");
   }
 
   create() {
@@ -25,16 +27,18 @@ export class GameScene extends Phaser.Scene {
   update() {
     let moved = false;
     const speed = 200 * (this.game.loop.delta / 1000);
-
+  
     let newX = this.player.x;
     let newY = this.player.y;
-
+  
     if (this.cursors.left?.isDown) {
       newX -= speed;
+      this.player.sprite.setFlipX(true); // face left
       moved = true;
     }
     if (this.cursors.right?.isDown) {
       newX += speed;
+      this.player.sprite.setFlipX(false); // face right
       moved = true;
     }
     if (this.cursors.up?.isDown) {
@@ -45,17 +49,18 @@ export class GameScene extends Phaser.Scene {
       newY += speed;
       moved = true;
     }
-
-    // Clamp to world bounds (800x600)
+  
+    // Clamp to world bounds
     newX = Phaser.Math.Clamp(newX, 0, 800);
     newY = Phaser.Math.Clamp(newY, 0, 600);
-
+  
     this.player.setPosition(newX, newY);
-
+  
     if (moved && this.sendPosition) {
       this.sendPosition(newX, newY);
     }
   }
+  
 
   updateOther(pubkey: string, x: number, y: number) {
     if (!this.others.has(pubkey)) {
