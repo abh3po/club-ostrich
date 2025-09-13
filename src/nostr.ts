@@ -46,3 +46,33 @@ export function subscribePositions(
     }
   );
 }
+
+export function sendMessage(pool: SimplePool, sk: Uint8Array, msg: string) {
+  const event = {
+    kind: 20010,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [],
+    content: msg,
+    pubkey: getPublicKey(sk),
+  };
+
+  const signed = finalizeEvent(event, sk);
+  pool.publish(RELAYS, signed);
+}
+
+export function subscribeMessages(
+  pool: SimplePool,
+  selfPubkey: string,
+  onMessage: (pubkey: string, msg: string) => void
+) {
+  pool.subscribeMany(
+    RELAYS,
+    [{ kinds: [20010] }],
+    {
+      onevent(event) {
+        if (event.pubkey === selfPubkey) return; // don’t echo yourself
+        onMessage(event.pubkey, event.content);
+      },
+    }
+  );
+}
